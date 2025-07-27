@@ -101,7 +101,7 @@ impl BpeTokenizer {
                                 self.merge_rules.push(max_pair_tuple.clone());
                             }
                         
-                            vocab=replace_occurance_with_merged_pair(& vocab, &max_pair_tuple);
+                            replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple);
 
                         }
 
@@ -205,10 +205,10 @@ pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<String>,usize>) -> 
 }
 
 
-pub fn replace_occurance_with_merged_pair(vocab:& HashMap<Vec<String>,usize>,max_pair:& (String,String))-> HashMap<Vec<String>,usize>{
+pub fn replace_occurance_with_merged_pair(vocab:&mut HashMap<Vec<String>,usize>,max_pair:& (String,String)){
     let mut updated_vocab:HashMap<Vec<String>,usize>=HashMap::new();
 
-    for (word,count) in vocab{
+    for (word,&count) in vocab.iter(){
         if word.len()<2{
             continue;
         }
@@ -216,7 +216,7 @@ pub fn replace_occurance_with_merged_pair(vocab:& HashMap<Vec<String>,usize>,max
         let mut i=0;
         while i<word.len() {
             if i<word.len()-1 && word[i]==max_pair.0 && word[i+1]==max_pair.1{
-                let merged= format!("{}{}", word[i], word[i+1]);;
+                let merged= word[i].clone() + &word[i+1];
                 new_word.push(merged);
                 i+=2;
             }
@@ -229,6 +229,7 @@ pub fn replace_occurance_with_merged_pair(vocab:& HashMap<Vec<String>,usize>,max
         *updated_vocab.entry(new_word).or_insert(0) += count;
 
     }
-   updated_vocab
+   vocab.clear();
+   vocab.extend(updated_vocab);
 }
 

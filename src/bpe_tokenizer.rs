@@ -3,13 +3,14 @@ use std::{collections::{HashMap, HashSet}, fmt::format, usize};
 use std::fs;
 use std::io;
 use std::time::Instant;
+use std::rc::Rc;
 //olso add the pre_tokenization techinque in the struct so you can give it to the train function which will get the raw data and then it will split data according to the given technique
 pub struct BpeTokenizer{
     input_text_path:String,
     target_vocab_size:usize,
     output_dir:String,
-    final_vocabulary: HashSet<String>,
-    merge_rules: Vec<(String,String)>,
+    final_vocabulary: HashSet<Rc<str>>,
+    merge_rules: Vec<(Rc<str>,Rc<str>)>,
     initial_vocabulary_len:usize
 
 
@@ -59,7 +60,7 @@ impl BpeTokenizer {
                 {
                         let tokens:Vec<String>= content.split_whitespace().map(|s| s.to_string()).collect();
         
-                        let mut vocab:HashMap<Vec<String>,usize>=HashMap::new();
+                        let mut vocab:HashMap<Vec<Rc<str>>,usize>=HashMap::new();
                         
                         let vocab_builder_start=Instant::now();
 
@@ -89,16 +90,16 @@ impl BpeTokenizer {
                         while  self.final_vocabulary.len()<self.target_vocab_size {
                         
                             
-                            let max_pair: Option<(String, String)>= record_most_frequent_adjacent_pair(&vocab);
+                            let max_pair: Option<(Rc<str>, Rc<str>)>= record_most_frequent_adjacent_pair(&vocab);
                             if max_pair.is_none(){
                                 print!("no more pairs to merge");
                                 break;
                             }
 
-                            let max_pair_tuple:(String,String)=max_pair.unwrap();
-                            let merged_pair=format!("{}{}", max_pair_tuple.0,max_pair_tuple.1);
-                            if self.final_vocabulary.insert(merged_pair.clone()){
-                                self.merge_rules.push(max_pair_tuple.clone());
+                            let max_pair_tuple:(Rc<str>,Rc<str>)=max_pair.unwrap();
+                            let merged_pair=Rc::from(format!("{}{}", max_pair_tuple.0,max_pair_tuple.1));
+                            if self.final_vocabulary.insert(Rc::clone(&merged_pair)){
+                                self.merge_rules.push((Rc::clone(&max_pair_tuple.0),Rc::clone(&max_pair_tuple.1)));
                             }
                         
                             replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple);
@@ -154,10 +155,10 @@ impl BpeTokenizer {
     }
 }
 
-pub fn add_initial_unique_ch_in_final_vocab(final_vocabulary: &mut HashSet<String>,vocab:& HashMap<Vec<String>,usize>){
+pub fn add_initial_unique_ch_in_final_vocab(final_vocabulary: &mut HashSet<Rc<str>>,vocab:& HashMap<Vec<Rc<str>>,usize>){
     for word in vocab.keys(){
         for token in word{
-            final_vocabulary.insert(token.clone());
+            final_vocabulary.insert(Rc::clone(token));
         }
     }
 }
@@ -166,11 +167,12 @@ pub fn add_initial_unique_ch_in_final_vocab(final_vocabulary: &mut HashSet<Strin
 
 
 
-pub fn vocab_builder(pretokenized_text:&Vec<String>,vocab:&mut HashMap<Vec<String>,usize>)   {
+
+pub fn vocab_builder(pretokenized_text:&Vec<String>,vocab:&mut HashMap<Vec<Rc<str>>,usize>)   {
     
     for word in pretokenized_text{
-        let mut char_seq:Vec<String> = word.chars().map(|c| c.to_string()).collect();
-        char_seq.push("</w>".to_string());
+        let mut char_seq:Vec<Rc<str>> = word.chars().map(|c| Rc::from(c.to_string())).collect();
+        char_seq.push(Rc::from("</w>"));
         *vocab.entry(char_seq).or_insert(0) +=1;
 
     }
@@ -183,8 +185,8 @@ enum TokenizerError{
     EmptyVocab,
 }
 
-pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<String>,usize>) -> Option<(String,String)>{
-    let mut adjacent_pairs_frequency_hashmap: HashMap<(String,String),usize>=HashMap::new();
+pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<Rc<str>>,usize>) -> Option<(Rc<str>,Rc<str>)>{
+    let mut adjacent_pairs_frequency_hashmap: HashMap<(Rc<str>,Rc<str>),usize>=HashMap::new();
     
     for  (word,count) in vocab {
         if word.len() <2{
@@ -192,7 +194,7 @@ pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<String>,usize>) -> 
         }
         for pair in word.windows(2)
         {
-            let key = (pair[0].clone(),pair[1].clone());
+            let key = (Rc::clone(&pair[0]),Rc::clone(&pair[1]));
             *adjacent_pairs_frequency_hashmap.entry(key).or_insert(0) +=count;
 
         }
@@ -205,23 +207,23 @@ pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<String>,usize>) -> 
 }
 
 
-pub fn replace_occurance_with_merged_pair(vocab:&mut HashMap<Vec<String>,usize>,max_pair:& (String,String)){
-    let mut updated_vocab:HashMap<Vec<String>,usize>=HashMap::new();
+pub fn replace_occurance_with_merged_pair(vocab:&mut HashMap<Vec<Rc<str>>,usize>,max_pair:& (Rc<str>,Rc<str>)){
+    let mut updated_vocab:HashMap<Vec<Rc<str>>,usize>=HashMap::new();
 
     for (word,&count) in vocab.iter(){
         if word.len()<2{
             continue;
         }
-        let mut new_word:Vec<String>=Vec::new();
+        let mut new_word:Vec<Rc<str>>=Vec::new();
         let mut i=0;
         while i<word.len() {
             if i<word.len()-1 && word[i]==max_pair.0 && word[i+1]==max_pair.1{
-                let merged= word[i].clone() + &word[i+1];
+                let merged= Rc::from(format!("{}{}", word[i], word[i + 1]));
                 new_word.push(merged);
                 i+=2;
             }
             else{
-                new_word.push(word[i].clone());
+                new_word.push(Rc::clone(&word[i]));
                 i+=1;
             }
                 

@@ -4,6 +4,10 @@ use std::fs;
 use std::io;
 use std::time::Instant;
 use std::rc::Rc;
+use crate::tokenizer_tables::TokenTable;
+
+
+
 //olso add the pre_tokenization techinque in the struct so you can give it to the train function which will get the raw data and then it will split data according to the given technique
 pub struct BpeTokenizer{
     input_text_path:String,
@@ -30,6 +34,7 @@ impl BpeTokenizer {
         }
     }
 }
+
 
 // impl BpeTokenizer {
 //     pub fn read_file_and_return_words_as_vec_string(& self){
@@ -101,9 +106,9 @@ impl BpeTokenizer {
                             if self.final_vocabulary.insert(Rc::clone(&merged_pair)){
                                 self.merge_rules.push((Rc::clone(&max_pair_tuple.0),Rc::clone(&max_pair_tuple.1)));
                             }
-                        
-                            replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple);
 
+                            replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple);
+                            
                         }
 
                         // print!("final_vocabulary");

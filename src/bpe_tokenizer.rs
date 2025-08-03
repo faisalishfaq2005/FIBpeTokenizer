@@ -1,5 +1,6 @@
 use core::hash;
-use std::{collections::{HashMap, HashSet}, fmt::format, usize};
+use std::{collections::{HashMap, HashSet,BinaryHeap}, fmt::format, usize};
+
 use std::fs;
 use std::io;
 use std::time::Instant;
@@ -53,6 +54,8 @@ impl BpeTokenizer {
                         let vocab_builder_start=Instant::now();
 
                         vocab_builder(&tokens, &mut vocab,&mut self.token_table);
+                        let  (mut pair_freq , mut heap)=build_initial_pair_stats(&vocab);
+
                         let vocab_builder_end=vocab_builder_start.elapsed();
                         println!("vocab builder took time: {:?}",vocab_builder_end);
 
@@ -63,8 +66,19 @@ impl BpeTokenizer {
                         
                         while  self.token_table.get_len() < self.target_vocab_size {
                         
-                            
-                            let max_pair: Option<(u32, u32)>= record_most_frequent_adjacent_pair(&vocab);
+                            let max_pair=loop{
+                                if let Some((freq,pair))=heap.pop(){
+                                    if let Some(&actual_freq)=pair_freq.get(&pair){
+                                        if freq==actual_freq{
+                                            break Some(pair);
+                                        }
+                                    }
+                                }
+                                else {
+                                    break None;
+                                }
+                            };
+                           
                             if max_pair.is_none(){
                                 print!("no more pairs to merge");
                                 break;
@@ -77,7 +91,7 @@ impl BpeTokenizer {
                             let merged_pair=format!("{}{}", token1,token2);
                             let merged_id=self.token_table.get_or_insert_id(&merged_pair);
                             self.merge_rules.push(max_pair_tuple);
-
+                            update_pair_stats_after_merge(&vocab, &mut pair_freq, &mut heap, &max_pair_tuple, merged_id);
                             replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple,merged_id);
                             
                         }
@@ -133,6 +147,32 @@ pub fn vocab_builder(pretokenized_text:&[String],vocab:&mut HashMap<Vec<u32>,usi
 
 }
 
+
+pub fn build_initial_pair_stats(vocab:&HashMap<Vec<u32>,usize>) -> (HashMap<(u32,u32),usize> , BinaryHeap<(usize,(u32,u32))>){
+    let mut pair_freq: HashMap<(u32,u32),usize>=HashMap::new();
+    let mut heap: BinaryHeap<(usize,(u32,u32))>=BinaryHeap::new();
+    
+    for (word,count) in vocab{
+         if word.len() <2{
+            continue;
+        }
+        for pair in word.windows(2){
+            let key=(pair[0],pair[1]);
+            *pair_freq.entry(key).or_insert(0) +=count;
+  
+        }
+
+    }
+
+    for (&pair,&freq) in &pair_freq{
+        heap.push((freq,pair));
+
+    }
+
+    (pair_freq,heap)
+    
+}
+
 #[derive(Debug)]
 enum TokenizerError{
     EmptyVocab,
@@ -159,7 +199,53 @@ pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<u32>,usize>) -> Opt
     max_pair
 }
 
+pub fn update_pair_stats_after_merge(vocab:& HashMap<Vec<u32>,usize>,pair_freq:&mut HashMap<(u32,u32),usize>,heap:&mut BinaryHeap<(usize,(u32,u32))> ,max_pair:& (u32,u32),max_pair_id:u32 ){
+    for (word,count) in vocab{
+        if word.len()<2{
+            continue;
+        }
 
+        let mut i=0;
+        while i<word.len() - 1 {
+            if word[i]==max_pair.0 && word[i+1]==max_pair.1{
+                if i>0{
+                    let left= (word[i-1],max_pair.0);
+                    safe_subtraction(pair_freq, left, *count);
+                    heap.push((*pair_freq.get(&left).unwrap_or(&0),left));
+
+                    let new_left=(word[i-1],max_pair_id);
+                    *pair_freq.entry(new_left).or_insert(0) +=count;
+                    heap.push((*pair_freq.get(&new_left).unwrap(),new_left));
+
+                }
+                if i+2< word.len(){
+                    let right =(max_pair.1,word[i+2]);
+                    safe_subtraction(pair_freq, right, *count);
+                    heap.push((*pair_freq.get(&right).unwrap_or(&0),right));
+
+                    let new_right =(max_pair_id,word[i+2]);
+                    *pair_freq.entry(new_right).or_insert(0) +=count;
+                    heap.push((*pair_freq.get(&new_right).unwrap(),new_right));
+
+                    
+                }
+                i+=2;
+
+            }
+            else {
+                i+=1;
+            }
+        }
+    }
+    pair_freq.remove(max_pair);
+} 
+
+
+fn safe_subtraction(pair_freq:&mut HashMap<(u32,u32),usize>,key:(u32,u32),count:usize){
+    if let Some(val)=pair_freq.get_mut(&key){
+        *val=val.saturating_sub(count);
+    }
+}
 pub fn replace_occurance_with_merged_pair(vocab:&mut HashMap<Vec<u32>,usize>,max_pair:& (u32,u32),max_pair_id:u32){
     let mut updated_vocab:HashMap<Vec<u32>,usize>=HashMap::new();
 

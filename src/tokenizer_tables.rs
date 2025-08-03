@@ -16,7 +16,7 @@ impl TokenTable{
     }
 
     pub fn get_or_insert_id(&mut self, token:&str)->u32{
-        if let some(&id)= self.token_to_id.get(token){
+        if let Some(&id)= self.token_to_id.get(token){
             return id
         }
         let rc_token: Rc<str> = Rc::from(token);
@@ -27,12 +27,12 @@ impl TokenTable{
     }
 
     pub fn get_id(&self, token:&str)->Option<u32>{
-        self.token_to_id.get(token).copied();
+        return  self.token_to_id.get(token).copied();
 
     }
 
     pub fn get_token(&self, id:u32) -> Option<&Rc<str>>{
-        self.id_to_token.get(id as usize);
+        return self.id_to_token.get(id as usize);
     }
 
     pub fn get_len(&self) -> usize{

@@ -6,8 +6,13 @@ use std::io;
 use std::time::Instant;
 use std::rc::Rc;
 use crate::tokenizer_tables::TokenTable;
+use rayon::prelude::*;
 
-
+#[derive(Debug, Clone)]
+pub struct Word {
+    pub tokens: Vec<u32>,
+    pub count: usize,
+}
 
 //olso add the pre_tokenization techinque in the struct so you can give it to the train function which will get the raw data and then it will split data according to the given technique
 pub struct BpeTokenizer{
@@ -49,15 +54,22 @@ impl BpeTokenizer {
                 {
                         let tokens:Vec<String>= content.split_whitespace().map(|s| s.to_string()).collect();
         
-                        let mut vocab:HashMap<Vec<u32>,usize>=HashMap::new();
+                        let mut vocab:Vec<Word>=Vec::new();
+
+                        let mut pair_occurances:HashMap<(u32,u32),HashSet<(usize,usize)>>=HashMap::new();
+
                         
                         let vocab_builder_start=Instant::now();
 
-                        vocab_builder(&tokens, &mut vocab,&mut self.token_table);
-                        let  (mut pair_freq , mut heap)=build_initial_pair_stats(&vocab);
-
+                        vocab_builder(&tokens, &mut vocab,&mut self.token_table,&mut pair_occurances);
                         let vocab_builder_end=vocab_builder_start.elapsed();
                         println!("vocab builder took time: {:?}",vocab_builder_end);
+                        
+
+                        let build_initial_pair_start=Instant::now();
+                        let  (mut pair_freq , mut heap)=build_initial_pair_stats(&vocab);
+                        let build_initial_pair_end=build_initial_pair_start.elapsed();
+                        println!("build initial pair took time: {:?}",build_initial_pair_end);
 
                     
                         
@@ -91,8 +103,9 @@ impl BpeTokenizer {
                             let merged_pair=format!("{}{}", token1,token2);
                             let merged_id=self.token_table.get_or_insert_id(&merged_pair);
                             self.merge_rules.push(max_pair_tuple);
-                            update_pair_stats_after_merge(&vocab, &mut pair_freq, &mut heap, &max_pair_tuple, merged_id);
-                            replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple,merged_id);
+                            update_pair_stats_after_merge(&vocab, &mut pair_freq, &mut heap, &max_pair_tuple, merged_id,& pair_occurances);
+                           
+                            replace_occurance_with_merged_pair(&mut vocab, &max_pair_tuple,merged_id,&mut pair_occurances);
                             
                         }
 
@@ -125,40 +138,83 @@ impl BpeTokenizer {
 }
 
 
-
-
-
-
-
-
-
-
-
-pub fn vocab_builder(pretokenized_text:&[String],vocab:&mut HashMap<Vec<u32>,usize>, table: &mut TokenTable )   {
+pub fn vocab_builder(pretokenized_text:&[String],vocab:&mut Vec<Word>, table: &mut TokenTable,pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>> )   {
     
-    for word in pretokenized_text{
+    let mut word_index_map:HashMap<Vec<u32>,usize>=HashMap::new();
+
+    for (indx,word )in pretokenized_text.iter().enumerate(){
         let mut char_seq:Vec<u32> = word.chars().map(|c| {let ch=c.to_string(); table.get_or_insert_id(&ch)}).collect();
         let end_of_word_id=table.get_or_insert_id("</w>");
         char_seq.push(end_of_word_id);
-        *vocab.entry(char_seq).or_insert(0) +=1;
+
+        if let Some(&existing_indx)=word_index_map.get(&char_seq){
+            vocab[existing_indx].count +=1;
+        }
+        else {
+            let vocab_index=vocab.len();
+            vocab.push(Word{tokens:char_seq.clone(),count:1});
+            word_index_map.insert(char_seq.clone(), vocab_index);
+
+            for i in 0..char_seq.len().saturating_sub(1){
+                let pair=(char_seq[i],char_seq[i+1]);
+                pair_occurrences.entry(pair).or_insert_with(HashSet::new).insert((vocab_index,i));
+            }
+        }
+       
 
     }
 
 
 }
 
+// pub fn vocab_builder2(pretokenized_text:&[String],vocab:&mut Vec<Word>, table: &mut TokenTable,pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>> )   {
+    
+//     let mut word_index_map:HashMap<Vec<u32>,usize>=HashMap::new();
+//     let end_of_word_id=table.get_or_insert_id("</w>");
 
-pub fn build_initial_pair_stats(vocab:&HashMap<Vec<u32>,usize>) -> (HashMap<(u32,u32),usize> , BinaryHeap<(usize,(u32,u32))>){
+
+//     let raw_words:Vec<Vec<u32>>=pretokenized_text.par_iter().map(|word|{
+//         let mut char_seq:Vec<u32>=word.chars().map(|c| {let ch=c.to_string(); table.get_or_insert_id(&ch)} ).collect();
+//         char_seq.push(end_of_word_id);
+//         char_seq
+//     }).collect();
+
+//     for char_seq in raw_words{
+//         if let Some(&existing_indx)=word_index_map.get(&char_seq){
+//             vocab[existing_indx].count +=1;
+//         }
+//         else {
+//             let vocab_index=vocab.len();
+//             vocab.push(Word{tokens:char_seq.clone(),count:1});
+//             word_index_map.insert(char_seq.clone(), vocab_index);
+
+//             for i in 0..char_seq.len().saturating_sub(1){
+//                 let pair=(char_seq[i],char_seq[i+1]);
+//                 pair_occurrences.entry(pair).or_insert_with(HashSet::new).insert((vocab_index,i));
+//             }
+//         }
+//     }
+
+    
+
+
+// }
+
+
+
+
+
+pub fn build_initial_pair_stats(vocab:&Vec<Word>) -> (HashMap<(u32,u32),usize> , BinaryHeap<(usize,(u32,u32))>){
     let mut pair_freq: HashMap<(u32,u32),usize>=HashMap::new();
     let mut heap: BinaryHeap<(usize,(u32,u32))>=BinaryHeap::new();
     
-    for (word,count) in vocab{
-         if word.len() <2{
+    for (word) in vocab{
+         if word.tokens.len() <2{
             continue;
         }
-        for pair in word.windows(2){
+        for pair in word.tokens.windows(2){
             let key=(pair[0],pair[1]);
-            *pair_freq.entry(key).or_insert(0) +=count;
+            *pair_freq.entry(key).or_insert(0) +=word.count;
   
         }
 
@@ -178,67 +234,6 @@ enum TokenizerError{
     EmptyVocab,
 }
 
-pub fn record_most_frequent_adjacent_pair(vocab:&HashMap<Vec<u32>,usize>) -> Option<(u32,u32)>{
-    let mut adjacent_pairs_frequency_hashmap: HashMap<(u32,u32),usize>=HashMap::new();
-    
-    for  (word,count) in vocab {
-        if word.len() <2{
-            continue;
-        }
-        for pair in word.windows(2)
-        {
-            let key = (pair[0],pair[1]);
-            *adjacent_pairs_frequency_hashmap.entry(key).or_insert(0) +=count;
-
-        }
-    }
-    // for (tuple,count) in &adjacent_pairs_frequency_hashmap{
-    //     println!("{:?}: {}", tuple, count);
-    // }
-    let max_pair=adjacent_pairs_frequency_hashmap.into_iter().max_by_key(|entry| entry.1).map(|(pair,_count)| pair);
-    max_pair
-}
-
-pub fn update_pair_stats_after_merge(vocab:& HashMap<Vec<u32>,usize>,pair_freq:&mut HashMap<(u32,u32),usize>,heap:&mut BinaryHeap<(usize,(u32,u32))> ,max_pair:& (u32,u32),max_pair_id:u32 ){
-    for (word,count) in vocab{
-        if word.len()<2{
-            continue;
-        }
-
-        let mut i=0;
-        while i<word.len() - 1 {
-            if word[i]==max_pair.0 && word[i+1]==max_pair.1{
-                if i>0{
-                    let left= (word[i-1],max_pair.0);
-                    safe_subtraction(pair_freq, left, *count);
-                    heap.push((*pair_freq.get(&left).unwrap_or(&0),left));
-
-                    let new_left=(word[i-1],max_pair_id);
-                    *pair_freq.entry(new_left).or_insert(0) +=count;
-                    heap.push((*pair_freq.get(&new_left).unwrap(),new_left));
-
-                }
-                if i+2< word.len(){
-                    let right =(max_pair.1,word[i+2]);
-                    safe_subtraction(pair_freq, right, *count);
-                    heap.push((*pair_freq.get(&right).unwrap_or(&0),right));
-
-                    let new_right =(max_pair_id,word[i+2]);
-                    *pair_freq.entry(new_right).or_insert(0) +=count;
-                    heap.push((*pair_freq.get(&new_right).unwrap(),new_right));
-
-                    
-                }
-                i+=2;
-
-            }
-            else {
-                i+=1;
-            }
-        }
-    }
-    pair_freq.remove(max_pair);
-} 
 
 
 fn safe_subtraction(pair_freq:&mut HashMap<(u32,u32),usize>,key:(u32,u32),count:usize){
@@ -246,31 +241,105 @@ fn safe_subtraction(pair_freq:&mut HashMap<(u32,u32),usize>,key:(u32,u32),count:
         *val=val.saturating_sub(count);
     }
 }
-pub fn replace_occurance_with_merged_pair(vocab:&mut HashMap<Vec<u32>,usize>,max_pair:& (u32,u32),max_pair_id:u32){
-    let mut updated_vocab:HashMap<Vec<u32>,usize>=HashMap::new();
 
-    for (word,&count) in vocab.iter(){
-        if word.len()<2{
-            continue;
-        }
-        let mut new_word:Vec<u32>=Vec::new();
-        let mut i=0;
-        while i<word.len() {
-            if i<word.len()-1 && word[i]==max_pair.0 && word[i+1]==max_pair.1{
 
-                new_word.push(max_pair_id);
-                i+=2;
+pub fn update_pair_stats_after_merge(vocab:& Vec<Word>,pair_freq:&mut HashMap<(u32,u32),usize>,heap:&mut BinaryHeap<(usize,(u32,u32))> ,max_pair:& (u32,u32),max_pair_id:u32, pair_occurrences: & HashMap<(u32, u32), HashSet<(usize, usize)>> ){
+    if let Some(positions)=pair_occurrences.get(max_pair){
+        
+        for &(vocab_indx,pos) in positions{
+            let word=& vocab[vocab_indx];
+            //added
+            if pos >= word.tokens.len() - 1 {
+                continue;
             }
-            else{
-                new_word.push(word[i]);
-                i+=1;
-            }
-                
-        }
-        *updated_vocab.entry(new_word).or_insert(0) += count;
 
-    }
-   vocab.clear();
-   vocab.extend(updated_vocab);
+            if word.tokens[pos] != max_pair.0 || word.tokens[pos + 1] != max_pair.1 {
+                continue;
+            }
+
+
+            if pos>0{
+                    let left= (word.tokens[pos-1],max_pair.0);
+                    safe_subtraction(pair_freq, left, word.count);
+                    heap.push((*pair_freq.get(&left).unwrap_or(&0),left));
+
+                    let new_left=(word.tokens[pos-1],max_pair_id);
+                    *pair_freq.entry(new_left).or_insert(0) +=word.count;
+                    heap.push((*pair_freq.get(&new_left).unwrap(),new_left));
+
+                }
+                if pos+2< word.tokens.len(){
+                    let right =(max_pair.1,word.tokens[pos+2]);
+                    safe_subtraction(pair_freq, right, word.count);
+                    heap.push((*pair_freq.get(&right).unwrap_or(&0),right));
+
+                    let new_right =(max_pair_id,word.tokens[pos+2]);
+                    *pair_freq.entry(new_right).or_insert(0) +=word.count;
+                    heap.push((*pair_freq.get(&new_right).unwrap(),new_right));
+
+                    
+                }
+
+        }
+        pair_freq.remove(max_pair);
+    } 
 }
 
+
+pub fn replace_occurance_with_merged_pair(vocab:&mut Vec<Word>,max_pair:& (u32,u32),max_pair_id:u32, pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>>){
+    if let Some(positions)=pair_occurrences.get(max_pair){
+        let mut Positions_vec:Vec<(usize,usize)>=positions.iter().cloned().collect();
+        Positions_vec.sort_by_key(|&(_, pos)| pos);
+        for (vocab_indx,pos) in Positions_vec{
+            let word=&mut vocab[vocab_indx];
+
+            // if pos>word.tokens.len()-1 {
+            //     continue;
+            // }
+            if pos + 1 >= word.tokens.len() {
+                continue;
+            }
+
+            if pos>0{
+                let left=(word.tokens[pos-1],word.tokens[pos]);
+                if let Some(set)=pair_occurrences.get_mut(&left){
+                    set.remove(&(vocab_indx,pos-1));
+                }
+            }
+            
+            if pos+2<word.tokens.len(){
+                let right=(word.tokens[pos+1],word.tokens[pos+2]);
+                if let Some(set)=pair_occurrences.get_mut(&right){
+                    set.remove(&(vocab_indx,pos+1));
+                }
+            }
+
+            if let Some(pr)=pair_occurrences.get_mut(max_pair){
+                pr.remove(&(vocab_indx,pos));
+            }
+
+           
+
+            if word.tokens[pos] != max_pair.0 || word.tokens[pos + 1] != max_pair.1 {
+                continue;
+            }
+
+            word.tokens.splice(pos..=pos+1, [max_pair_id]);
+            
+
+            if pos > 0 && pos < word.tokens.len()  {
+                let new_left = (word.tokens[pos - 1], max_pair_id);
+                pair_occurrences.entry(new_left).or_default().insert((vocab_indx, pos - 1));
+            }
+
+            if pos +1 < word.tokens.len()  {
+                let new_right = (max_pair_id, word.tokens[pos + 1]);
+                pair_occurrences.entry(new_right).or_default().insert((vocab_indx, pos));
+            }
+
+           
+        }
+
+    }
+    pair_occurrences.remove(max_pair);
+}

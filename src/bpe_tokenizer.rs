@@ -61,7 +61,7 @@ impl BpeTokenizer {
                         
                         let vocab_builder_start=Instant::now();
 
-                        vocab_builder(&tokens, &mut vocab,&mut self.token_table,&mut pair_occurances);
+                        vocab_builder2(&tokens, &mut vocab,&mut self.token_table,&mut pair_occurances);
                         let vocab_builder_end=vocab_builder_start.elapsed();
                         println!("vocab builder took time: {:?}",vocab_builder_end);
                         
@@ -167,39 +167,61 @@ pub fn vocab_builder(pretokenized_text:&[String],vocab:&mut Vec<Word>, table: &m
 
 }
 
-// pub fn vocab_builder2(pretokenized_text:&[String],vocab:&mut Vec<Word>, table: &mut TokenTable,pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>> )   {
-    
-//     let mut word_index_map:HashMap<Vec<u32>,usize>=HashMap::new();
-//     let end_of_word_id=table.get_or_insert_id("</w>");
 
+pub fn vocab_builder2(
+    pretokenized_text: &[String],
+    vocab: &mut Vec<Word>,
+    table: &mut TokenTable,
+    pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>>
+) {
+    // Step 1: Precompute character token IDs (serial)
+    let mut char_to_id: HashMap<char, u32> = HashMap::new();
+    for word in pretokenized_text.iter() {
+        for c in word.chars() {
+            let s = c.to_string();
+            char_to_id.entry(c).or_insert_with(|| table.get_or_insert_id(&s));
+        }
+    }
 
-//     let raw_words:Vec<Vec<u32>>=pretokenized_text.par_iter().map(|word|{
-//         let mut char_seq:Vec<u32>=word.chars().map(|c| {let ch=c.to_string(); table.get_or_insert_id(&ch)} ).collect();
-//         char_seq.push(end_of_word_id);
-//         char_seq
-//     }).collect();
+    let end_of_word_id = table.get_or_insert_id("</w>");
 
-//     for char_seq in raw_words{
-//         if let Some(&existing_indx)=word_index_map.get(&char_seq){
-//             vocab[existing_indx].count +=1;
-//         }
-//         else {
-//             let vocab_index=vocab.len();
-//             vocab.push(Word{tokens:char_seq.clone(),count:1});
-//             word_index_map.insert(char_seq.clone(), vocab_index);
+    // Step 2: Parallel build Vec<Vec<u32>>
+    let raw_words: Vec<Vec<u32>> = pretokenized_text
+        .par_iter()
+        .map(|word| {
+            let mut char_seq: Vec<u32> = word
+                .chars()
+                .map(|c| char_to_id[&c])
+                .collect();
+            char_seq.push(end_of_word_id);
+            char_seq
+        })
+        .collect();
 
-//             for i in 0..char_seq.len().saturating_sub(1){
-//                 let pair=(char_seq[i],char_seq[i+1]);
-//                 pair_occurrences.entry(pair).or_insert_with(HashSet::new).insert((vocab_index,i));
-//             }
-//         }
-//     }
+    // Step 3: Serial building of vocab + pair_occurrences
+    let mut word_index_map: HashMap<Vec<u32>, usize> = HashMap::new();
 
-    
+    for char_seq in raw_words {
+        if let Some(&existing_indx) = word_index_map.get(&char_seq) {
+            vocab[existing_indx].count += 1;
+        } else {
+            let vocab_index = vocab.len();
+            vocab.push(Word {
+                tokens: char_seq.clone(),
+                count: 1,
+            });
+            word_index_map.insert(char_seq.clone(), vocab_index);
 
-
-// }
-
+            for i in 0..char_seq.len().saturating_sub(1) {
+                let pair = (char_seq[i], char_seq[i + 1]);
+                pair_occurrences
+                    .entry(pair)
+                    .or_insert_with(HashSet::new)
+                    .insert((vocab_index, i));
+            }
+        }
+    }
+}
 
 
 

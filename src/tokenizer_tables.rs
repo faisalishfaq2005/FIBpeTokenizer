@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 
 pub struct TokenTable{
-    id_to_token:Vec<Rc<str>>,
-    token_to_id: HashMap<Rc<str>,u32>
+    id_to_token:Vec<Arc<str>>,
+    token_to_id: HashMap<Arc<str>,u32>
 }
 
 impl TokenTable{
@@ -20,9 +20,9 @@ impl TokenTable{
         if let Some(&id)= self.token_to_id.get(token){
             return id
         }
-        let rc_token: Rc<str> = Rc::from(token);
+        let rc_token: Arc<str> = Arc::from(token);
         let id=self.id_to_token.len() as u32;
-        self.id_to_token.push(Rc::clone(&rc_token));
+        self.id_to_token.push(Arc::clone(&rc_token));
         self.token_to_id.insert(rc_token,id);
         id
     }
@@ -32,7 +32,7 @@ impl TokenTable{
 
     }
 
-    pub fn get_token(&self, id:u32) -> Option<&Rc<str>>{
+    pub fn get_token(&self, id:u32) -> Option<&Arc<str>>{
         return self.id_to_token.get(id as usize);
     }
 
@@ -40,7 +40,7 @@ impl TokenTable{
         self.id_to_token.len()
     }
 
-    pub fn tokens(&self) -> &[Rc<str>]{
+    pub fn tokens(&self) -> &[Arc<str>]{
         &self.id_to_token
     }
 }

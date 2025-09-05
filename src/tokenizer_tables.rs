@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -27,8 +28,15 @@ impl TokenTable{
         id
     }
 
-    pub fn get_id(&self, token:&str)->Option<u32>{
-        return  self.token_to_id.get(token).copied();
+    pub fn get_id(&self, token:&str)->u32{
+        if let Some(&id )=self.token_to_id.get(token){
+            return  id;
+        }
+        else{
+            panic!("id not found");
+        }
+        
+        
 
     }
 

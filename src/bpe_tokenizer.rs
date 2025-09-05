@@ -1,5 +1,5 @@
 use core::hash;
-use std::{collections::{HashMap, HashSet,BinaryHeap}, fmt::format, usize};
+use std::{collections::{BinaryHeap, HashMap, HashSet}, fmt::format, u32, usize};
 
 use std::fs;
 use std::io;
@@ -14,6 +14,7 @@ pub struct Word {
     pub count: usize,
 }
 
+//olso make a function for getting id given a special token
 //olso add the pre_tokenization techinque in the struct so you can give it to the train function which will get the raw data and then it will split data according to the given technique
 pub struct BpeTokenizer{
     input_text_path:String,
@@ -21,9 +22,15 @@ pub struct BpeTokenizer{
     output_dir:String,
     token_table:TokenTable,
     merge_rules: Vec<(u32,u32)>,
+    ranks: HashMap<(u32,u32),usize>,
+    pairs_to_merge: HashMap<(u32,u32),u32>
     
+}
 
-
+pub struct Encoder{
+    pub original_text:String,
+    pub tokens:Vec<String>,
+    pub ids:Vec<u32>
 }
 
 impl BpeTokenizer {
@@ -35,12 +42,23 @@ impl BpeTokenizer {
             output_dir:output_dir.to_string(),
             token_table:TokenTable::new(),
             merge_rules:Vec::new(),
+            ranks:HashMap::new(),
+            pairs_to_merge: HashMap::new()
             
 
         }
     }
 }
 
+impl Encoder{
+    pub fn new() -> Self{
+        Encoder{
+        original_text:String::new(),
+        tokens:Vec::new(),
+        ids:Vec::new(),
+        }
+    }
+}
 
 
 
@@ -109,9 +127,37 @@ impl BpeTokenizer {
                             
                         }
 
+                        let (ranks,pairs_to_merge)=build_ranks_and_pairs_to_merge(&self.merge_rules, &self.token_table);
+                        self.ranks=ranks;
+                        self.pairs_to_merge=pairs_to_merge;
+
                        
+                        println!("Checking if 'something</w>' exists during training...");
+                        // Assuming get_id returns u32 (not Option<u32>)
+                        let something_id = self.token_table.get_id("something</w>");
+                        println!("something</w> ID during training: {}", something_id);
 
-
+                        println!("But was it added through BPE? Checking merge rules...");
+                        let mut found = false;
+                        for &(a, b) in &self.merge_rules {
+                            let token_a = self.token_table.get_token(a).expect("not found");
+                            let token_b = self.token_table.get_token(b).expect("not found");
+                            if format!("{}{}", token_a, token_b) == "something</w>" {
+                                println!("Found merge rule: '{}' + '{}'", token_a, token_b);
+                                found = true;
+                                break;
+                            }
+                        }
+                        if !found {
+                            println!("'something</w>' exists but no merge rule found! This is the bug.");
+                            
+                            // Let's also check what tokens 3279 and 221 actually are
+                            let token_3279 = self.token_table.get_token(3279).expect("not found");
+                            let token_221 = self.token_table.get_token(221).expect("not found");
+                            println!("Token 3279: '{}'", token_3279);
+                            println!("Token 221: '{}'", token_221);
+                            println!("Their combination: '{}{}'", token_3279, token_221);
+                        }
                 }
             
             Err(er) =>{
@@ -124,19 +170,139 @@ impl BpeTokenizer {
        
         
     }
-    
+    pub fn encode(&self, raw_encoding_text: &str) -> Encoder {
+    let encoding_text_pretokenized: Vec<String> = raw_encoding_text.split_whitespace()
+        .map(|s| s.to_string())
+        .collect();
+    let end_of_word_id: u32 = self.token_table.get_id("</w>");
+    let mut encoder_object = Encoder::new();
+    encoder_object.original_text = raw_encoding_text.to_string();
+    let mut words: Vec<Vec<u32>> = Vec::new();
+
+
+    for word in encoding_text_pretokenized.iter() {
+        let mut char_ids: Vec<u32> = word.chars()
+            .map(|c| {
+                let ch = c.to_string();
+                self.token_table.get_id(&ch)
+            })
+            .collect();
+        char_ids.push(end_of_word_id);
+        words.push(char_ids);
+    }
+
+
+    for word in words.iter_mut() {
+        let mut changed = true;
+        
+        while changed {
+            changed = false;
+            
+           
+            let lowest_rank_pair = word.windows(2)
+                .filter_map(|pair| {
+                    let key = (pair[0], pair[1]);
+                    self.ranks.get(&key).map(|&rank| (key, rank))
+                })
+                .min_by_key(|&(_, rank)| rank);
+
+            if let Some((pair, _)) = lowest_rank_pair {
+                if let Some(&merged_id) = self.pairs_to_merge.get(&pair) {
+                    
+                    let mut i = 0;
+                    while i < word.len().saturating_sub(1) {
+                        if word[i] == pair.0 && word[i + 1] == pair.1 {
+                            word.remove(i + 1);
+                            word[i] = merged_id;
+                            changed = true;  
+                           
+                        } else {
+                            i += 1;
+                        }
+                    }
+                }
+            }
+        }
+
+        for id in word.iter() {
+            encoder_object.ids.push(*id);
+            if let Some(token) = self.token_table.get_token(*id) {
+                encoder_object.tokens.push(token.to_string());
+            }
+        }
+    }
+
+    encoder_object
 }
 
-impl BpeTokenizer {
-    pub fn display(& self){
+pub fn display(& self){
         
         println!("{:?}",self.token_table.tokens());
         
 
         println!("{}",self.token_table.get_len());
     }
+
+pub fn get_id_by_token(&self,token:String){
+    let id=self.token_table.get_id(&token);
+    println!("{}",id);
+    
+}
+pub fn get_token_by_id(&self,id:u32){
+    if let Some(token)=self.token_table.get_token(id){
+        println!("{}",token.to_string());
+    }
+    else{
+        print!("No token found for this id");
+    }
+    
+    
+}
+pub fn get_merge_pair_from_pairs_to_merge_and_ranks(&self,tuple:(u32,u32)){
+    if let Some(rank)=self.ranks.get(&tuple){
+        println!("{}",rank);
+    }
+    else{
+        println!("no rank found for this");
+    }
+
+    if let Some(pair)=self.pairs_to_merge.get_key_value(&tuple){
+        let key=pair.0;
+        let id=pair.1;
+        println!("{:?}",key);
+        println!("{}",id);
+    }
+    else{
+        println!("no pair and id found for this tuple in pairs to merge");
+    }
+
+    if self.merge_rules.contains(&tuple){
+        println!("pair found in merge rules")
+    }
+    else{
+        println!("pair not found in merge rules")
+    }
 }
 
+    
+}
+
+
+
+
+pub fn build_ranks_and_pairs_to_merge(merge_rules: &Vec<(u32,u32)>,table:&TokenTable)-> (HashMap<(u32, u32), usize>, HashMap<(u32, u32), u32>){
+    let mut ranks: HashMap<(u32,u32),usize>=HashMap::new();
+    let mut pairs_to_merge: HashMap<(u32,u32),u32>=HashMap::new();
+    for (index ,pair) in merge_rules.iter().enumerate(){
+        ranks.insert(*pair, index);
+        let token1=table.get_token(pair.0).expect("token not found");
+        let token2=table.get_token(pair.1).expect("token not found");
+        let merged_pair=format!("{}{}", token1,token2);
+        let merged_pair_id=table.get_id(&merged_pair);
+        pairs_to_merge.insert(*pair, merged_pair_id);
+    }
+    (ranks,pairs_to_merge)
+}
 
 pub fn vocab_builder(pretokenized_text:&[String],vocab:&mut Vec<Word>, table: &mut TokenTable,pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>> )   {
     
@@ -174,7 +340,7 @@ pub fn vocab_builder2(
     table: &mut TokenTable,
     pair_occurrences: &mut HashMap<(u32, u32), HashSet<(usize, usize)>>
 ) {
-    // Step 1: Precompute character token IDs (serial)
+   
     let mut char_to_id: HashMap<char, u32> = HashMap::new();
     for word in pretokenized_text.iter() {
         for c in word.chars() {
@@ -185,7 +351,6 @@ pub fn vocab_builder2(
 
     let end_of_word_id = table.get_or_insert_id("</w>");
 
-    // Step 2: Parallel build Vec<Vec<u32>>
     let raw_words: Vec<Vec<u32>> = pretokenized_text
         .par_iter()
         .map(|word| {
@@ -198,7 +363,7 @@ pub fn vocab_builder2(
         })
         .collect();
 
-    // Step 3: Serial building of vocab + pair_occurrences
+    
     let mut word_index_map: HashMap<Vec<u32>, usize> = HashMap::new();
 
     for char_seq in raw_words {
@@ -270,7 +435,7 @@ pub fn update_pair_stats_after_merge(vocab:& Vec<Word>,pair_freq:&mut HashMap<(u
         
         for &(vocab_indx,pos) in positions{
             let word=& vocab[vocab_indx];
-            //added
+            
             if pos >= word.tokens.len() - 1 {
                 continue;
             }

@@ -19,7 +19,7 @@ mod tokenizer_tables;
 fn main() {
     let special_tokens:Vec<String>=vec!["<pad>".to_string(),"<mask>".to_string(),"<unk>".to_string(),"<eow>".to_string()];
     let special_tokens2:Vec<String>=Vec::new();
-    let mut tokenizer=BpeTokenizer::new("corpus.txt", 4000,PreTokenization::Punctuation,special_tokens2,SpecialTokenRemovalMethod::AhoCorasick,"out_dir"); //set mechanism for default valies for special tokens wich is empty list and for special token remover fn
+    let mut tokenizer=BpeTokenizer::new("corpus.txt", 4000,PreTokenization::Punctuation,special_tokens,SpecialTokenRemovalMethod::AhoCorasick,"out_dir"); //set mechanism for default valies for special tokens wich is empty list and for special token remover fn
     let start=Instant::now();
 
     tokenizer.train();
@@ -27,7 +27,7 @@ fn main() {
     println!("training time completed in : {:?}",duration);
 
     //tokenizer.display();
-    let encoding_text:&str="we are going i'm to the supermarket <pad>, on Friday, and <mask> Wednesday. on the plane there, will be some of magic but <eow>" ;
+    let encoding_text:&str="<pad> we are going i'm to the supermarket <pad>, on Friday, and <mask> Wednesday. on the plane there, will be some of magic but <eow>" ;
     let encoded_text:Encoder=tokenizer.encode2(&encoding_text);
    
     println!("{:?}",encoded_text.tokens);

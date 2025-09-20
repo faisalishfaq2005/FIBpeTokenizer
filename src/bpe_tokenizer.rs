@@ -24,16 +24,16 @@ pub enum SpecialTokenRemovalMethod {
 //olso make a function for getting id given a special token
 //olso add the pre_tokenization techinque in the struct so you can give it to the train function which will get the raw data and then it will split data according to the given technique
 pub struct BpeTokenizer{
-    input_text_path:String,
-    target_vocab_size:usize,
-    pre_tokenizer:PreTokenization,
-    special_tokens:Vec<String>,
-    special_token_removal_method:SpecialTokenRemovalMethod,
-    output_dir:String,
-    token_table:TokenTable,
-    merge_rules: Vec<(u32,u32)>,
-    ranks: HashMap<(u32,u32),usize>,
-    pairs_to_merge: HashMap<(u32,u32),u32>
+    pub input_text_path:String,
+    pub target_vocab_size:usize,
+    pub pre_tokenizer:PreTokenization,
+    pub special_tokens:Vec<String>,
+    pub special_token_removal_method:SpecialTokenRemovalMethod,
+    pub output_dir:String,
+    pub token_table:TokenTable,
+    pub merge_rules: Vec<(u32,u32)>,
+    pub ranks: HashMap<(u32,u32),usize>,
+    pub pairs_to_merge: HashMap<(u32,u32),u32>
     
 }
 #[derive(Clone,Debug)]
@@ -190,34 +190,6 @@ impl BpeTokenizer {
                         self.ranks=ranks;
                         self.pairs_to_merge=pairs_to_merge;
                         
-
-                       
-                        // println!("Checking if 'something</w>' exists during training...");
-                        // // Assuming get_id returns u32 (not Option<u32>)
-                        // let something_id = self.token_table.get_id("something</w>");
-                        // println!("something</w> ID during training: {}", something_id);
-
-                        // println!("But was it added through BPE? Checking merge rules...");
-                        // let mut found = false;
-                        // for &(a, b) in &self.merge_rules {
-                        //     let token_a = self.token_table.get_token(a).expect("not found");
-                        //     let token_b = self.token_table.get_token(b).expect("not found");
-                        //     if format!("{}{}", token_a, token_b) == "something</w>" {
-                        //         println!("Found merge rule: '{}' + '{}'", token_a, token_b);
-                        //         found = true;
-                        //         break;
-                        //     }
-                        // }
-                        // if !found {
-                        //     println!("'something</w>' exists but no merge rule found! This is the bug.");
-                            
-                        //     // Let's also check what tokens 3279 and 221 actually are
-                        //     let token_3279 = self.token_table.get_token(3279).expect("not found");
-                        //     let token_221 = self.token_table.get_token(221).expect("not found");
-                        //     println!("Token 3279: '{}'", token_3279);
-                        //     println!("Token 221: '{}'", token_221);
-                        //     println!("Their combination: '{}{}'", token_3279, token_221);
-                        // }
                 }
             
             Err(er) =>{

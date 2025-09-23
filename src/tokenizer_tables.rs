@@ -2,8 +2,9 @@ use core::panic;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
+use serde::{Serialize,Deserialize};
 
-
+#[derive(Serialize,Deserialize)]
 pub struct TokenTable{
     id_to_token:Vec<Arc<str>>,
     token_to_id: HashMap<Arc<str>,u32>
@@ -28,13 +29,8 @@ impl TokenTable{
         id
     }
 
-    pub fn get_id(&self, token:&str)->u32{
-        if let Some(&id )=self.token_to_id.get(token){
-            return  id;
-        }
-        else{
-            panic!("id not found");
-        }
+    pub fn get_id(&self, token:&str)->Option<u32>{
+        return  self.token_to_id.get(token).copied();
         
         
 

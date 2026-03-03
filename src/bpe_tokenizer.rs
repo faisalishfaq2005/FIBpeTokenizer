@@ -166,15 +166,15 @@ impl Encoder{
         }
     }
 
-    pub fn get_token_type(&self,token:&str)-> TokenType{
+    pub fn get_token_type(&self,token:&str)-> Result<TokenType,TokenizerError>{
         if let Some(indx)=self.tokens.iter().position(|word| *word == token){
             let token_type=self.token_types.get(indx).unwrap();
-            return token_type.clone();
+            Ok(token_type.clone())
                  
             
         }
         else{
-            panic!("the token does not exist");
+            return Err(TokenizerError::TokenNotExists(format!("the token {} does not exists",token)));
             
         }
     }

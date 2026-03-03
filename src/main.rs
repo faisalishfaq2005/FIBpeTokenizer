@@ -17,25 +17,25 @@ mod tokenizer_tables;
 
 
 fn main() {
-    // let special_tokens:Vec<String>=vec!["<pad>".to_string(),"<mask>".to_string(),"<unk>".to_string(),"<eow>".to_string()];
-    // let special_tokens2:Vec<String>=Vec::new();
-    // let mut tokenizer=BpeTokenizer::new("corpus.txt", 4000,PreTokenization::Punctuation,special_tokens,SpecialTokenRemovalMethod::AhoCorasick,true,Some("out_dir")); //set mechanism for default valies for special tokens wich is empty list and for special token remover fn
-    // let start=Instant::now();
+    let special_tokens:Vec<String>=vec!["<pad>".to_string(),"<mask>".to_string(),"<unk>".to_string(),"<eow>".to_string()];
+    let special_tokens2:Vec<String>=Vec::new();
+    let mut tokenizer=BpeTokenizer::new("corpus.txt", 20000,PreTokenization::Punctuation,special_tokens,SpecialTokenRemovalMethod::AhoCorasick,true,Some("out_dir")); //set mechanism for default valies for special tokens wich is empty list and for special token remover fn
+    let start=Instant::now();
 
 
-    // tokenizer.train().unwrap();
-    // let duration=start.elapsed();
-    // println!("training time completed in : {:?}",duration);
+    tokenizer.train().unwrap();
+    let duration=start.elapsed();
+    println!("training time completed in : {:?}",duration);
 
 
     //from pretrained
-    let mut tokenizer=BpeTokenizer::new_from_pretrained("out_dir");
-    let r=tokenizer.train();
-    match r {
-        Ok(())=> {},
-        Err(error)=> eprintln!("error: {}",error)
+    // let mut tokenizer=BpeTokenizer::new_from_pretrained("out_dir");
+    // let r=tokenizer.train();
+    // match r {
+    //     Ok(())=> {},
+    //     Err(error)=> eprintln!("error: {}",error)
         
-    }
+    // }
     
     
 

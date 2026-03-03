@@ -28,5 +28,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Configurable vocabulary size
 - Support for special tokens like `<pad>`, `<mask>`, etc.
 
-[Unreleased]: https://github.com/yourusername/fibpetokenizer/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/yourusername/fibpetokenizer/releases/tag/v0.1.0
+[Unreleased]: https://github.com/faisalishfaq2005/FIBpeTokenizer/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/faisalishfaq2005/FIBpeTokenizer/releases/tag/v0.1.0

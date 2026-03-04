@@ -1,6 +1,6 @@
 [package]
 name = "fibpetokenizer"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Muhammad Faisal Ishfaq <faisalishfaq59@gmail.com>"]
 description = "A blazing fast Byte Pair Encoding (BPE) tokenizer library with Python bindings"

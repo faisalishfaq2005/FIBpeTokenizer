@@ -4,7 +4,6 @@ build-backend = "maturin"
 
 [project]
 name = "fibpetokenizer"
-version = "0.1.0"
 description = "A blazing fast Byte Pair Encoding (BPE) tokenizer library with Python bindings"
 authors = [
     {name = "Muhammad Faisal Ishfaq", email = "faisalishfaq59@gmail.com"}

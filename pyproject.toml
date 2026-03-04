@@ -38,5 +38,5 @@ Documentation = "https://github.com/faisalishfaq2005/FIBpeTokenizer"
 
 [tool.maturin]
 features = ["python"]
-python-source = "python"
+
 module-name = "fibpetokenizer"

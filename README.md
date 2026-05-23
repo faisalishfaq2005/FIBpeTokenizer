@@ -1,6 +1,32 @@
-# FIBpeTokenizer 🚀
+## FIBpeTokenizer 🚀
 
-A blazing fast **Byte Pair Encoding (BPE)** tokenizer library written in Rust with Python bindings.
+A blazing fast Byte Pair Encoding (BPE) tokenizer library written in Rust with Python bindings.
+
+📦 **13,000+ downloads on PyPI**
+
+## Performance Highlights
+
+To validate efficiency, **FIBpeTokenizer** was benchmarked against **Hugging Face’s tokenizer** across vocabulary sizes from **4,000** to **90,000** tokens.
+
+## Scaling Behavior
+
+**FIBpeTokenizer** shows highly stable **near-linear scaling** due to Rust-level memory control and parallel processing.
+
+At a vocabulary size of **4,000**, training completes in **5.15** seconds. Even when scaled by **22x** to **90,000** tokens, training time only increases to **14.53** seconds, demonstrating strong computational efficiency under load.
+
+⚔️ Comparison vs Hugging Face Tokenizer
+Standard range (**4k – 20k vocab**):
+Performance is extremely close. At **10,000** vocab, **FIBpeTokenizer** runs in **5.89s** vs **HF’s** **5.62s**, effectively matching mature C++ backend performance.
+Large scale (**30k – 90k vocab**):
+Hugging Face benefits from highly optimized memory management and shows better sub-linear scaling (**9.32s at 90k**).
+**FIBpeTokenizer** reaches **14.53s,** but remains strongly competitive and production-viable, especially considering it is a lightweight Rust-first implementation.
+
+## Visual Benchmarks
+
+<img width="2484" height="1478" alt="Screenshot 2026-05-23 221735" src="https://github.com/user-attachments/assets/599eaa14-7649-4302-bb36-6f4a57cac2e6" />
+<img width="3604" height="988" alt="Screenshot 2026-05-23 221822" src="https://github.com/user-attachments/assets/b528f9a5-3cf9-48f6-859e-dae143d1601a" />
+<img width="2721" height="1483" alt="Screenshot 2026-05-23 221522" src="https://github.com/user-attachments/assets/277cd90c-6a42-4feb-9bd8-f876389315a0" />
+
 
 ## Features ✨
 

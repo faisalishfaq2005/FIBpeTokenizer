@@ -25,8 +25,9 @@ Hugging Face benefits from highly optimized memory management and shows better s
 
 ## Visual Benchmarks
 
-<img width="2484" height="1478" alt="Screenshot 2026-05-23 221735" src="https://github.com/user-attachments/assets/599eaa14-7649-4302-bb36-6f4a57cac2e6" />
 <img width="2721" height="1483" alt="Screenshot 2026-05-23 221522" src="https://github.com/user-attachments/assets/277cd90c-6a42-4feb-9bd8-f876389315a0" />
+<img width="2484" height="1478" alt="Screenshot 2026-05-23 221735" src="https://github.com/user-attachments/assets/599eaa14-7649-4302-bb36-6f4a57cac2e6" />
+
 
 
 ## Features ✨

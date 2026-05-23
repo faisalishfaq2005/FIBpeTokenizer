@@ -4,6 +4,8 @@ A blazing fast Byte Pair Encoding (BPE) tokenizer library written in Rust with P
 
 📦 **13,000+ downloads on PyPI**
 
+<img width="3604" height="988" alt="Screenshot 2026-05-23 221822" src="https://github.com/user-attachments/assets/b528f9a5-3cf9-48f6-859e-dae143d1601a" />
+
 ## Performance Highlights
 
 To validate efficiency, **FIBpeTokenizer** was benchmarked against **Hugging Face’s tokenizer** across vocabulary sizes from **4,000** to **90,000** tokens.
@@ -24,7 +26,6 @@ Hugging Face benefits from highly optimized memory management and shows better s
 ## Visual Benchmarks
 
 <img width="2484" height="1478" alt="Screenshot 2026-05-23 221735" src="https://github.com/user-attachments/assets/599eaa14-7649-4302-bb36-6f4a57cac2e6" />
-<img width="3604" height="988" alt="Screenshot 2026-05-23 221822" src="https://github.com/user-attachments/assets/b528f9a5-3cf9-48f6-859e-dae143d1601a" />
 <img width="2721" height="1483" alt="Screenshot 2026-05-23 221522" src="https://github.com/user-attachments/assets/277cd90c-6a42-4feb-9bd8-f876389315a0" />
 
 

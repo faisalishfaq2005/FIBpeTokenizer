@@ -2,10 +2,11 @@
 
 A blazing fast Byte Pair Encoding (BPE) tokenizer library written in Rust with Python bindings.
 
-📦 **16,000+ downloads on PyPI**
+📦 **17,000+ downloads on PyPI**
 
 <img width="2198" height="517" alt="Screenshot 2026-06-09 195951" src="https://github.com/user-attachments/assets/2e19a13e-b15d-481b-8afe-79a83c9c8d5e" />
-<img width="2212" height="378" alt="Screenshot 2026-06-09 195959" src="https://github.com/user-attachments/assets/e32ea7d2-22ca-45e5-ac8e-5428026a89c4" />
+<img width="2145" height="327" alt="Screenshot 2026-06-24 102852" src="https://github.com/user-attachments/assets/b0f9f814-bcbc-4ad9-baba-091d83778bec" />
+
 
 
 ## Performance Highlights
